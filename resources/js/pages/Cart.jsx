@@ -11,32 +11,34 @@ import {
   Grid,
   Box,
 } from '@mui/material';
+import CartProductCard from '../components/CartProductCard';
+import CartOrderSummary from '../components/CartOrderSummary';
 
 const Cart = () => {
-  const products = [
-    {
-      id: 1,
-      name: 'Gradient Graphic T-Shirt',
-      price: 145,
-      stock: 25,
-      imageUrl: 'path/to/image1.jpg', // Replace with your image path
-    },
-    {
-      id: 2,
-      name: 'Gradient Graphic T-Shirt',
-      price: 145,
-      stock: 25,
-      imageUrl: 'path/to/image2.jpg', // Replace with your image path
-    },
-  ];
+    const products = [
+        { id: 1, name: 'Gradient Graphic T-shirt', price: 145, stock: 25, image: 'shirt1.png', tag: 'T-shirts', quantity: 1 },
+        { id: 2, name: 'Polo with Tipping Details', price: 180, stock: 18, image: 'shirt2.png', tag: 'Polo', quantity: 0 },
+      ];
 
-  const subtotal = products.reduce((total, product) => total + product.price, 0);
-  const shipping = 15;
-  const total = subtotal + shipping;
+    const cart = products.filter(p => p.quantity > 0);
 
   return (
-    <Container>
-      <Box mt={4}>
+    <Grid container spacing={2}>
+        <Grid item size={{ xs: 12, md: 8 }}>
+            <Grid container spacing={2} mb={4}>
+                {products.map(product => (
+                <Grid item size={{ xs: 12, md: 12 }} key={product.id}>
+                    <CartProductCard product={product} />
+                </Grid>
+                ))}
+            </Grid>
+        </Grid>
+        <Grid item size={{ xs: 12, md: 4 }}>
+            <CartOrderSummary cart={cart} />
+        </Grid>
+    </Grid>
+
+      /* <Box mt={4}>
         <Typography variant="h4">Your cart</Typography>
 
         <Grid container spacing={2} mt={2}>
@@ -90,8 +92,7 @@ const Cart = () => {
             </Card>
           </Grid>
         </Grid>
-      </Box>
-    </Container>
+      </Box> */
   );
 };
 

@@ -26,7 +26,13 @@ const FilterFloatingButton = () => {
 
   return (
     <>
-      <Box sx={{ position: 'fixed', top: 130, left: 0 }}>
+      <Box sx={{
+        display: {
+            xs: 'none',
+            sm: 'none',
+            md: 'flex',
+            },
+        position: 'fixed', top: 130, left: 0 }}>
         <Box
           onClick={toggleDrawer}
           sx={{

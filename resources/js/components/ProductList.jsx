@@ -4,11 +4,14 @@ import {
   Grid,
   Typography,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Pagination,
+  Button
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ProductCard from '../components/ProductCard';
 import OrderSummary from '../components/OrderSummary';
+import TuneIcon from '@mui/icons-material/Tune';
 
 const products = [
   { id: 1, name: 'Gradient Graphic T-shirt', price: 145, stock: 25, image: 'shirt1.png', tag: 'T-shirts', quantity: 1 },
@@ -29,44 +32,83 @@ const ProductList = () => {
   const cart = products.filter(p => p.quantity > 0);
 
   return (
-    <Box sx={{ display: 'flex'}}>
-      {/* Left side: Products */}
-      <Box sx={{ flex: 1, overflowY: 'auto', p: 2, marginRight: 2 ,background:'#fff', border:1, borderRadius:2, borderColor:"grey.300" }}>
-        <TextField
-          variant="outlined"
-          size="small"
-          fullWidth
-          value={search}
-          placeholder="Search by product name"
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ mb: 2 }}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                    <SearchIcon />
-                </InputAdornment>
-              ),
-            },
-          }}
 
-        />
-        <Typography variant="h5" mb={2}>Casual</Typography>
-        <Typography variant="subtitle2" mb={4}>Showing 1-6 of 6 Products</Typography>
-        <Grid container spacing={2}>
-          {filteredProducts.map(product => (
-            <Grid item xs={12} sm={12} md={12} key={product.id}>
-              <ProductCard product={product} />
-            </Grid>
-          ))}
+    <Grid container spacing={2}>
+        <Grid item size={{ xs: 12, md: 8 }}>
+            <Box p={2} border={1} borderRadius={2} borderColor="grey.300" sx={{ backgroundColor: '#fff' }}>
+                <TextField
+                    variant="outlined"
+                    size="small"
+                    fullWidth
+                    value={search}
+                    placeholder="Search by product name"
+                    onChange={(e) => setSearch(e.target.value)}
+                    sx={{
+                        display: {
+                            xs: 'none',   // show on extra-small
+                            sm: 'none',   // show on small
+                            md: 'flex',   // hide on medium and up
+                          },
+                        mb: 2 }}
+                    InputProps={{
+                    startAdornment: (
+                        <InputAdornment position="start">
+                        <SearchIcon />
+                        </InputAdornment>
+                    )
+                    }}
+                />
+
+                <TextField
+                variant="outlined"
+                size="small"
+                fullWidth
+                value={search}
+                placeholder="Search by product name"
+                onChange={(e) => setSearch(e.target.value)}
+                sx={{
+                    display: {
+                    xs: 'flex',   // hidden on xs
+                    sm: 'flex',   // hidden on sm
+                    md: 'none',   // visible on md and up
+                    },
+                    mb: 2
+                }}
+                InputProps={{
+                    startAdornment: (
+                    <InputAdornment position="start">
+                        <SearchIcon />
+                    </InputAdornment>
+                    ),
+                    endAdornment: (
+                    <InputAdornment position="end">
+                        <Button variant="contained" size="small">
+                        <TuneIcon />
+                        </Button>
+                    </InputAdornment>
+                    )
+                }}
+                />
+                <Typography variant="h5" mb={1}>Casual</Typography>
+                <Typography variant="subtitle2" mb={3}>
+                    Showing {filteredProducts.length} of {products.length} Products
+                </Typography>
+                <Grid container spacing={2} mb={4}>
+                    {filteredProducts.map(product => (
+                    <Grid item size={{ xs: 12, md: 4 }} key={product.id}>
+                        <ProductCard product={product} />
+                    </Grid>
+                    ))}
+                </Grid>
+                <Box display="flex" justifyContent="center" mt="auto">
+                    <Pagination count={1} />
+                </Box>
+            </Box>
         </Grid>
-      </Box>
-
-      {/* Right side: Order Summary */}
-      <Box sx={{ borderLeft: '1px solid #eee'}}>
-        <OrderSummary cart={cart} />
-      </Box>
-    </Box>
+        <Grid item size={{ xs: 12, md: 4 }}>
+            <OrderSummary cart={cart} />
+        </Grid>
+    </Grid>
   );
 };
 
