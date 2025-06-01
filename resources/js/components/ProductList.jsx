@@ -8,7 +8,8 @@ import {
   Pagination,
   Button,
   CircularProgress,
-  Alert
+  Alert,
+  Snackbar
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ProductCard from '../components/ProductCard';
@@ -31,6 +32,38 @@ const ProductList = () => {
     maxPrice: 300
   });
   const [availableCategories, setAvailableCategories] = useState([]);
+
+  // Authentication state - moved to top
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+
+  // Order submission states
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState(false);
+  const [orderError, setOrderError] = useState(null);
+
+  // Check authentication status and get user data
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+        // Get auth token from localStorage
+        const token = localStorage.getItem('auth_token');
+        console.log('Auth Token:', token);
+        const userDataString = localStorage.getItem('user');
+        console.log('User Data:', userDataString);
+
+        if (!token || !userDataString) {
+          setIsAuthenticated(false);
+          setUser(null);
+          return;
+        }
+
+        const userData = JSON.parse(userDataString);
+        setUser(userData);
+        setIsAuthenticated(true);
+    };
+
+    checkAuthStatus();
+  }, []);
 
   // Memoize the fetchProducts function to prevent unnecessary re-creations
   const fetchProducts = useCallback(async (page = 1, searchQuery = '', filterParams = {}) => {
@@ -89,6 +122,77 @@ const ProductList = () => {
     }
   }, []); // Empty dependency array since this function doesn't depend on any state
 
+  // Order submission function
+  const submitOrder = useCallback(async () => {
+    try {
+      setIsSubmittingOrder(true);
+      setOrderError(null);
+
+      // Get auth token
+      const token = localStorage.getItem('auth_token');
+
+      if (!token || !isAuthenticated || !user) {
+        throw new Error('Please log in to place an order');
+      }
+
+      // Prepare order payload using logged-in user data
+      const orderPayload = {
+        products: cart.map(item => ({
+          product_id: item.id,
+          quantity: item.quantity,
+          price: item.price,
+          name: item.name
+        })),
+        total_amount: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+        user_id: user.id,
+      };
+
+      const response = await fetch('http://localhost:8000/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'accept': 'application/json'
+        },
+        body: JSON.stringify(orderPayload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        setOrderSuccess(true);
+        // Clear cart after successful order
+        setProducts(prevProducts =>
+          prevProducts.map(product => ({ ...product, quantity: 0 }))
+        );
+        setCart([]);
+      } else {
+        throw new Error(result.message || 'Failed to submit order');
+      }
+
+      return result;
+    } catch (err) {
+      setOrderError(err.message);
+      console.error('Error submitting order:', err);
+
+      // If error is related to authentication, redirect to login
+      if (err.message.includes('log in') || err.message.includes('unauthorized')) {
+        setTimeout(() => {
+          window.location.href = '/login'; // or use your routing method
+        }, 2000);
+      }
+
+      throw err;
+    } finally {
+      setIsSubmittingOrder(false);
+    }
+  }, [cart, isAuthenticated, user]);
+
   // Initial load - only run once on component mount
   useEffect(() => {
     fetchProducts(1, '', filters);
@@ -143,6 +247,56 @@ const ProductList = () => {
       )
     );
   }, []);
+
+  // Handle removing item from cart
+  const handleRemoveFromCart = useCallback((productId) => {
+    setProducts(prevProducts =>
+      prevProducts.map(product =>
+        product.id === productId
+          ? { ...product, quantity: 0 }
+          : product
+      )
+    );
+  }, []);
+
+  // Handle checkout process
+  const handleProceedToCheckout = useCallback(async () => {
+    // Check authentication first
+    if (!isAuthenticated || !user) {
+      setOrderError('Please log in to place an order');
+      setTimeout(() => {
+        window.location.href = '/login'; // or use your routing method
+      }, 2000);
+      return;
+    }
+
+    if (cart.length === 0) {
+      setOrderError('Your cart is empty');
+      return;
+    }
+
+    // Check if user has required information
+    if (!user.email || !(user.name || user.full_name)) {
+      setOrderError('Please complete your profile information to place an order');
+      return;
+    }
+
+    try {
+      await submitOrder();
+    } catch (error) {
+      // Error is already handled in submitOrder function
+    }
+  }, [cart, isAuthenticated, user, submitOrder]);
+
+  // Close success snackbar
+  const handleCloseSuccessSnackbar = () => {
+    setOrderSuccess(false);
+  };
+
+  // Close error snackbar
+  const handleCloseErrorSnackbar = () => {
+    setOrderError(null);
+  };
 
   // Apply local filtering for immediate feedback (remove if API handles all filtering)
   const filteredProducts = products;
@@ -275,9 +429,40 @@ const ProductList = () => {
         </Box>
       </Grid>
       <Grid item size={{ xs: 12, md: 4 }}>
-        <OrderSummary cart={cart} />
+        <OrderSummary
+          cart={cart}
+          onProceedToCheckout={handleProceedToCheckout}
+          onRemoveFromCart={handleRemoveFromCart}
+          isSubmittingOrder={isSubmittingOrder}
+          isAuthenticated={isAuthenticated}
+          user={user}
+        />
       </Grid>
     </Grid>
+
+    {/* Success Snackbar */}
+    <Snackbar
+      open={orderSuccess}
+      autoHideDuration={6000}
+      onClose={handleCloseSuccessSnackbar}
+      anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+    >
+      <Alert onClose={handleCloseSuccessSnackbar} severity="success" sx={{ width: '100%' }}>
+        Order submitted successfully! Thank you for your purchase.
+      </Alert>
+    </Snackbar>
+
+    {/* Error Snackbar */}
+    <Snackbar
+      open={!!orderError}
+      autoHideDuration={6000}
+      onClose={handleCloseErrorSnackbar}
+      anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+    >
+      <Alert onClose={handleCloseErrorSnackbar} severity="error" sx={{ width: '100%' }}>
+        {orderError}
+      </Alert>
+    </Snackbar>
     </>
   );
 };
