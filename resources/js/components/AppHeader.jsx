@@ -36,12 +36,6 @@ const AppBarComponent = () => {
         <ListItem button>
           <ListItemText primary="Sell Your Product" />
         </ListItem>
-        <ListItem button component={Link} to="/cart">
-          <ListItemText primary="Cart" />
-        </ListItem>
-        <ListItem button component={Link} to="/login">
-          <ListItemText primary="Login" />
-        </ListItem>
       </List>
     </Box>
   );
@@ -61,7 +55,7 @@ const AppBarComponent = () => {
 
             {!isMobile && (
               <>
-                <Button variant="text" component={Link} to="/">Products</Button>
+                <Button variant="text" component={Link} to="/" sx={{textTransform:'none'}}>Products</Button>
                 <Button variant="contained">Sell Your Product</Button>
               </>
             )}
