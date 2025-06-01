@@ -12,8 +12,8 @@ import { Add, Remove } from '@mui/icons-material';
 
 const ProductCard = ({ product }) => (
   <Card sx={{ minWidth: 220 }}>
-    <CardMedia component="img" height="140" image={product.image} alt={product.name} />
     <CardContent>
+      <CardMedia component="img" height="140" image={product.image} alt={product.name} />
       <Typography variant="subtitle1">{product.name}</Typography>
       <Typography variant="subtitle2">${product.price}</Typography>
       <Chip label={product.tag} size="small" sx={{ mt: 1 }} />

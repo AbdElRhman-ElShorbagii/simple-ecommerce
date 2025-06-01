@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
@@ -11,6 +12,8 @@ import CssBaseline from '@mui/material/CssBaseline';
 
 import MainLayout from './components/MainLayout';
 import Home from './pages/Home';
+import Login from './pages/Login';
+import Cart from './pages/Cart';
 
 const theme = createTheme({
     typography: {
@@ -28,15 +31,20 @@ const theme = createTheme({
             paper: '#ffffff',
         },
     },
-
 });
 
 const App = () => (
     <ThemeProvider theme={theme}>
         <CssBaseline />
-        <MainLayout>
-            <Home />
-        </MainLayout>
+        <Router>
+            <MainLayout>
+                <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/cart" element={<Cart />} />
+                </Routes>
+            </MainLayout>
+        </Router>
     </ThemeProvider>
 );
 
