@@ -22,7 +22,7 @@ const Cart = () => {
   // Order and cart state
   const [orderDetails, setOrderDetails] = useState(null);
   const [cartItems, setCartItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Changed default to false
   const [error, setError] = useState(null);
 
   // Authentication state
@@ -122,7 +122,7 @@ const Cart = () => {
 
   // Fetch order details when component mounts or auth changes
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && orderId) {
       fetchOrderDetails();
     }
   }, [fetchOrderDetails, isAuthenticated]);
@@ -190,6 +190,30 @@ const Cart = () => {
   const handleCloseErrorSnackbar = () => {
     setOrderError(null);
   };
+
+  // Show empty cart if no order_id parameter
+  if (!orderId) {
+    return (
+      <Box textAlign="center" py={8}>
+        <Paper elevation={1} sx={{ p: 4, maxWidth: 600, mx: 'auto' }}>
+          <Typography variant="h4" gutterBottom>
+            Your Cart is Empty
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            Looks like you haven't added any items to your cart yet.
+          </Typography>
+          <Button
+            variant="contained"
+            size="large"
+            onClick={() => navigate('/')}
+            sx={{ px: 4 }}
+          >
+            Start Shopping
+          </Button>
+        </Paper>
+      </Box>
+    );
+  }
 
   if (loading) {
     return (
