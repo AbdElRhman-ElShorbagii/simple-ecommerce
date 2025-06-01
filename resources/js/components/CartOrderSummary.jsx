@@ -23,12 +23,6 @@ const CartOrderSummary = ({
   const tax = subtotal / 14;
   const total = subtotal + shipping + tax;
 
-  const handleProceedClick = () => {
-    if (onProceedToCheckout) {
-      onProceedToCheckout();
-    }
-  };
-
   return (
     <Box
       p={2}
@@ -103,7 +97,6 @@ const CartOrderSummary = ({
         variant="contained"
         fullWidth
         size="large"
-        onClick={handleProceedClick}
         disabled={isSubmittingOrder || !isAuthenticated || cart.length === 0}
       >
         {isSubmittingOrder ? 'Processing...' : buttonText}

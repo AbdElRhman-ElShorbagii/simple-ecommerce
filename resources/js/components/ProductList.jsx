@@ -16,10 +16,10 @@ import ProductCard from '../components/ProductCard';
 import OrderSummary from '../components/OrderSummary';
 import FilterFloatingButton from '../components/FilterFloatingButton';
 import TuneIcon from '@mui/icons-material/Tune';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // Add this import
 
 const ProductList = () => {
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // Add navigation hook
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,18 +36,19 @@ const ProductList = () => {
   });
   const [availableCategories, setAvailableCategories] = useState([]);
 
-  // Authentication state
+  // Authentication state - moved to top
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
 
-  // Cart saving states
-  const [isSavingToCart, setIsSavingToCart] = useState(false);
-  const [cartSaveSuccess, setCartSaveSuccess] = useState(false);
-  const [cartSaveError, setCartSaveError] = useState(null);
+  // Order submission states
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState(false);
+  const [orderError, setOrderError] = useState(null);
 
   // Check authentication status and get user data
   useEffect(() => {
     const checkAuthStatus = async () => {
+        // Get auth token from localStorage
         const token = localStorage.getItem('auth_token');
         console.log('Auth Token:', token);
         const userDataString = localStorage.getItem('user');
@@ -121,25 +122,20 @@ const ProductList = () => {
     }
   }, []);
 
-  // Save cart items to backend
-  const saveToCart = useCallback(async () => {
+  // Updated order submission function - saves order and redirects
+  const submitOrder = useCallback(async () => {
     try {
-      setIsSavingToCart(true);
-      setCartSaveError(null);
+      setIsSubmittingOrder(true);
+      setOrderError(null);
 
       const token = localStorage.getItem('auth_token');
 
       if (!token || !isAuthenticated || !user) {
-        throw new Error('Please log in to save items to cart');
+        throw new Error('Please log in to place an order');
       }
 
-      if (cart.length === 0) {
-        setCartSaveError('Your cart is empty');
-        return;
-      }
-
-      // Create cart payload
-      const cartPayload = {
+      // Create order payload with status as 'draft' or 'pending'
+      const orderPayload = {
         products: cart.map(item => ({
           product_id: item.id,
           quantity: item.quantity,
@@ -148,17 +144,17 @@ const ProductList = () => {
         })),
         total_amount: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
         user_id: user.id,
-        status: 'cart' // Explicitly set status as cart
+        status: 'cart'
       };
 
-      const response = await fetch('http://localhost:8000/api/cart', {
+      const response = await fetch('http://localhost:8000/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
         },
-        body: JSON.stringify(cartPayload)
+        body: JSON.stringify(orderPayload)
       });
 
       if (!response.ok) {
@@ -169,26 +165,26 @@ const ProductList = () => {
       const result = await response.json();
 
       if (result.success) {
-        // Show success message
-        setCartSaveSuccess(true);
+        // Clear cart after successful order creation
+        setProducts(prevProducts =>
+          prevProducts.map(product => ({ ...product, quantity: 0 }))
+        );
+        setCart([]);
 
-        // Optional: Clear the local cart after saving
-        // setProducts(prevProducts =>
-        //   prevProducts.map(product => ({ ...product, quantity: 0 }))
-        // );
-        // setCart([]);
+        // Store order ID and redirect to cart page
+        const orderId = result.data.id || result.order_id;
 
-        // Navigate to cart page to view saved items
-        navigate('/cart');
+        // Navigate to cart page with order ID
+        navigate(`/cart?order_id=${orderId}`);
 
         return result;
       } else {
-        throw new Error(result.message || 'Failed to save cart');
+        throw new Error(result.message || 'Failed to create order');
       }
 
     } catch (err) {
-      setCartSaveError(err.message);
-      console.error('Error saving cart:', err);
+      setOrderError(err.message);
+      console.error('Error creating order:', err);
 
       if (err.message.includes('log in') || err.message.includes('unauthorized')) {
         setTimeout(() => {
@@ -198,7 +194,7 @@ const ProductList = () => {
 
       throw err;
     } finally {
-      setIsSavingToCart(false);
+      setIsSubmittingOrder(false);
     }
   }, [cart, isAuthenticated, user, navigate]);
 
@@ -267,10 +263,10 @@ const ProductList = () => {
     );
   }, []);
 
-  // Handle save to cart - renamed from handleProceedToCheckout
-  const handleSaveToCart = useCallback(async () => {
+  // Handle proceed to checkout - now creates order and redirects
+  const handleProceedToCheckout = useCallback(async () => {
     if (!isAuthenticated || !user) {
-      setCartSaveError('Please log in to save items to cart');
+      setOrderError('Please log in to place an order');
       setTimeout(() => {
         navigate('/login');
       }, 2000);
@@ -278,25 +274,25 @@ const ProductList = () => {
     }
 
     if (cart.length === 0) {
-      setCartSaveError('Your cart is empty');
+      setOrderError('Your cart is empty');
+      return;
+    }
+
+    if (!user.email || !(user.name || user.full_name)) {
+      setOrderError('Please complete your profile information to place an order');
       return;
     }
 
     try {
-      await saveToCart();
+      await submitOrder(); // This will create order and redirect
     } catch (error) {
-      // Error is already handled in saveToCart function
+      // Error is already handled in submitOrder function
     }
-  }, [cart, isAuthenticated, user, saveToCart, navigate]);
+  }, [cart, isAuthenticated, user, submitOrder, navigate]);
 
   // Close error snackbar
   const handleCloseErrorSnackbar = () => {
-    setCartSaveError(null);
-  };
-
-  // Close success snackbar
-  const handleCloseSuccessSnackbar = () => {
-    setCartSaveSuccess(false);
+    setOrderError(null);
   };
 
   const filteredProducts = products;
@@ -431,9 +427,9 @@ const ProductList = () => {
         <Grid item size={{ xs: 12, md: 4 }}>
           <OrderSummary
             cart={cart}
-            onProceedToCheckout={handleSaveToCart} // Changed from handleProceedToCheckout
+            onProceedToCheckout={handleProceedToCheckout}
             onRemoveFromCart={handleRemoveFromCart}
-            isSubmittingOrder={isSavingToCart} // Changed from isSubmittingOrder
+            isSubmittingOrder={isSubmittingOrder}
             isAuthenticated={isAuthenticated}
             user={user}
           />
@@ -442,25 +438,13 @@ const ProductList = () => {
 
       {/* Error Snackbar */}
       <Snackbar
-        open={!!cartSaveError}
+        open={!!orderError}
         autoHideDuration={6000}
         onClose={handleCloseErrorSnackbar}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert onClose={handleCloseErrorSnackbar} severity="error" sx={{ width: '100%' }}>
-          {cartSaveError}
-        </Alert>
-      </Snackbar>
-
-      {/* Success Snackbar */}
-      <Snackbar
-        open={cartSaveSuccess}
-        autoHideDuration={4000}
-        onClose={handleCloseSuccessSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert onClose={handleCloseSuccessSnackbar} severity="success" sx={{ width: '100%' }}>
-          Items saved to cart successfully!
+          {orderError}
         </Alert>
       </Snackbar>
     </>
