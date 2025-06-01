@@ -21,13 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Configure stateful domains for Sanctum (if using SPA)
         $middleware->statefulApi();
-
     })
-    ->withEvents([
-        OrderPlaced::class => [
-            SendOrderPlacedNotification::class,
-        ],
-    ])
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();
