@@ -8,7 +8,7 @@ const AppBarComponent = () => (
     <Container>
         <Toolbar sx={{ justifyContent: 'space-between' }}>
         <Box display="flex" alignItems="center" gap={1}>
-            <img src="/logo.png" alt="Izam" height="30" />
+            <img src="/logo.png" alt="Izam" height="50" />
             <Button variant="text" component={Link} to="/">Products</Button>
             <Button variant="contained">Sell Your Product</Button>
         </Box>
