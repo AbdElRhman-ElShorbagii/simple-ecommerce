@@ -98,6 +98,9 @@ class OrderController extends Controller
                     return [
                         'id' => $product->id,
                         'name' => $product->name,
+                        'img_url' => $product->img_url,
+                        'category' => $product->category,
+                        'stock_quantity' => $product->stock_quantity,
                         'unit_price' => $product->pivot->unit_price,
                         'quantity' => $product->pivot->quantity,
                         'subtotal' => $product->pivot->unit_price * $product->pivot->quantity

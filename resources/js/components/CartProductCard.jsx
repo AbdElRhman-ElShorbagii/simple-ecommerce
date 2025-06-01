@@ -11,13 +11,15 @@ import {
 import { Add, Remove } from '@mui/icons-material';
 
 const CartProductCard = ({ product }) => (
-  <Card sx={{ display: 'flex', alignItems: 'flex-start' }}>
-    <CardMedia
-      component="img"
-      sx={{ objectFit: 'cover' }}
-      image={product.image}
-      alt={product.name}
-    />
+  <Card sx={{ display: 'flex', alignItems: 'stretch' }}>
+    <Box sx={{ width: 120, height: '100%' }}>
+      <CardMedia
+        component="img"
+        image={product.image}
+        alt={product.name}
+        sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+      />
+    </Box>
     <CardContent sx={{ flex: '1 0 auto' }}>
       <Typography variant="subtitle1">{product.name}</Typography>
       <Typography variant="subtitle2">${product.price}</Typography>

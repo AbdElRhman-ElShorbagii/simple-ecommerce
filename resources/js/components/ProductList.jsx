@@ -16,8 +16,11 @@ import ProductCard from '../components/ProductCard';
 import OrderSummary from '../components/OrderSummary';
 import FilterFloatingButton from '../components/FilterFloatingButton';
 import TuneIcon from '@mui/icons-material/Tune';
+import { useNavigate } from 'react-router-dom';
 
 const ProductList = () => {
+  const navigate = useNavigate();
+
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -33,19 +36,18 @@ const ProductList = () => {
   });
   const [availableCategories, setAvailableCategories] = useState([]);
 
-  // Authentication state - moved to top
+  // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
 
-  // Order submission states
-  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
-  const [orderSuccess, setOrderSuccess] = useState(false);
-  const [orderError, setOrderError] = useState(null);
+  // Cart saving states
+  const [isSavingToCart, setIsSavingToCart] = useState(false);
+  const [cartSaveSuccess, setCartSaveSuccess] = useState(false);
+  const [cartSaveError, setCartSaveError] = useState(null);
 
   // Check authentication status and get user data
   useEffect(() => {
     const checkAuthStatus = async () => {
-        // Get auth token from localStorage
         const token = localStorage.getItem('auth_token');
         console.log('Auth Token:', token);
         const userDataString = localStorage.getItem('user');
@@ -71,7 +73,6 @@ const ProductList = () => {
       setLoading(true);
       setError(null);
 
-      // Build query parameters
       const params = new URLSearchParams({
         page: page.toString(),
         ...(searchQuery && { search: searchQuery }),
@@ -91,15 +92,14 @@ const ProductList = () => {
       const apiData = await response.json();
 
       if (apiData.success) {
-        // Transform API data to match your component's expected format
         const transformedProducts = apiData.data.map(product => ({
           id: product.id,
           name: product.name,
           price: parseFloat(product.price_raw),
           stock: product.stock_quantity,
-          image: product.image_url || `product${product.id}.png`, // fallback image
+          image: product.image_url || `product${product.id}.png`,
           tag: product.category,
-          quantity: 0, // Initialize cart quantity as 0
+          quantity: 0,
           isActive: product.is_active,
           inStock: product.in_stock
         }));
@@ -108,7 +108,6 @@ const ProductList = () => {
         setTotalPages(apiData.meta.total_pages);
         setCurrentPage(apiData.meta.current_page);
 
-        // Extract unique categories for filter component
         const categories = [...new Set(transformedProducts.map(p => p.tag))];
         setAvailableCategories(categories);
       } else {
@@ -120,23 +119,27 @@ const ProductList = () => {
     } finally {
       setLoading(false);
     }
-  }, []); // Empty dependency array since this function doesn't depend on any state
+  }, []);
 
-  // Order submission function
-  const submitOrder = useCallback(async () => {
+  // Save cart items to backend
+  const saveToCart = useCallback(async () => {
     try {
-      setIsSubmittingOrder(true);
-      setOrderError(null);
+      setIsSavingToCart(true);
+      setCartSaveError(null);
 
-      // Get auth token
       const token = localStorage.getItem('auth_token');
 
       if (!token || !isAuthenticated || !user) {
-        throw new Error('Please log in to place an order');
+        throw new Error('Please log in to save items to cart');
       }
 
-      // Prepare order payload using logged-in user data
-      const orderPayload = {
+      if (cart.length === 0) {
+        setCartSaveError('Your cart is empty');
+        return;
+      }
+
+      // Create cart payload
+      const cartPayload = {
         products: cart.map(item => ({
           product_id: item.id,
           quantity: item.quantity,
@@ -145,16 +148,17 @@ const ProductList = () => {
         })),
         total_amount: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
         user_id: user.id,
+        status: 'cart' // Explicitly set status as cart
       };
 
-      const response = await fetch('http://localhost:8000/api/orders', {
+      const response = await fetch('http://localhost:8000/api/cart', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
-          'accept': 'application/json'
+          'Accept': 'application/json'
         },
-        body: JSON.stringify(orderPayload)
+        body: JSON.stringify(cartPayload)
       });
 
       if (!response.ok) {
@@ -165,60 +169,64 @@ const ProductList = () => {
       const result = await response.json();
 
       if (result.success) {
-        setOrderSuccess(true);
-        // Clear cart after successful order
-        setProducts(prevProducts =>
-          prevProducts.map(product => ({ ...product, quantity: 0 }))
-        );
-        setCart([]);
+        // Show success message
+        setCartSaveSuccess(true);
+
+        // Optional: Clear the local cart after saving
+        // setProducts(prevProducts =>
+        //   prevProducts.map(product => ({ ...product, quantity: 0 }))
+        // );
+        // setCart([]);
+
+        // Navigate to cart page to view saved items
+        navigate('/cart');
+
+        return result;
       } else {
-        throw new Error(result.message || 'Failed to submit order');
+        throw new Error(result.message || 'Failed to save cart');
       }
 
-      return result;
     } catch (err) {
-      setOrderError(err.message);
-      console.error('Error submitting order:', err);
+      setCartSaveError(err.message);
+      console.error('Error saving cart:', err);
 
-      // If error is related to authentication, redirect to login
       if (err.message.includes('log in') || err.message.includes('unauthorized')) {
         setTimeout(() => {
-          window.location.href = '/login'; // or use your routing method
+          navigate('/login');
         }, 2000);
       }
 
       throw err;
     } finally {
-      setIsSubmittingOrder(false);
+      setIsSavingToCart(false);
     }
-  }, [cart, isAuthenticated, user]);
+  }, [cart, isAuthenticated, user, navigate]);
 
-  // Initial load - only run once on component mount
+  // Initial load
   useEffect(() => {
     fetchProducts(1, '', filters);
-  }, [fetchProducts]); // Only depend on the memoized fetchProducts function
+  }, [fetchProducts]);
 
-  // Handle search with debouncing - separate useEffect for search
+  // Handle search with debouncing
   useEffect(() => {
     if (search === '') {
-      // If search is empty, fetch immediately
       fetchProducts(1, search, filters);
       return;
     }
 
     const timeoutId = setTimeout(() => {
       fetchProducts(1, search, filters);
-      setCurrentPage(1); // Reset to first page when searching
-    }, 500); // 500ms debounce
+      setCurrentPage(1);
+    }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [search, fetchProducts]); // Remove filters from dependencies to prevent loop
+  }, [search, fetchProducts]);
 
-  // Handle filter changes - separate useEffect for filters
+  // Handle filter changes
   useEffect(() => {
     fetchProducts(1, search, filters);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [filters.minPrice, filters.maxPrice, filters.categories, fetchProducts]); // Only depend on specific filter properties
+    setCurrentPage(1);
+  }, [filters.minPrice, filters.maxPrice, filters.categories, fetchProducts]);
 
   // Handle pagination
   const handlePageChange = (event, page) => {
@@ -231,13 +239,13 @@ const ProductList = () => {
     setFilters(newFilters);
   }, []);
 
-  // Update cart when products change - this is fine as is
+  // Update cart when products change
   useEffect(() => {
     const cartItems = products.filter(p => p.quantity > 0);
     setCart(cartItems);
   }, [products]);
 
-  // Update product quantity (for cart functionality)
+  // Update product quantity
   const updateProductQuantity = useCallback((productId, newQuantity) => {
     setProducts(prevProducts =>
       prevProducts.map(product =>
@@ -259,46 +267,38 @@ const ProductList = () => {
     );
   }, []);
 
-  // Handle checkout process
-  const handleProceedToCheckout = useCallback(async () => {
-    // Check authentication first
+  // Handle save to cart - renamed from handleProceedToCheckout
+  const handleSaveToCart = useCallback(async () => {
     if (!isAuthenticated || !user) {
-      setOrderError('Please log in to place an order');
+      setCartSaveError('Please log in to save items to cart');
       setTimeout(() => {
-        window.location.href = '/login'; // or use your routing method
+        navigate('/login');
       }, 2000);
       return;
     }
 
     if (cart.length === 0) {
-      setOrderError('Your cart is empty');
-      return;
-    }
-
-    // Check if user has required information
-    if (!user.email || !(user.name || user.full_name)) {
-      setOrderError('Please complete your profile information to place an order');
+      setCartSaveError('Your cart is empty');
       return;
     }
 
     try {
-      await submitOrder();
+      await saveToCart();
     } catch (error) {
-      // Error is already handled in submitOrder function
+      // Error is already handled in saveToCart function
     }
-  }, [cart, isAuthenticated, user, submitOrder]);
-
-  // Close success snackbar
-  const handleCloseSuccessSnackbar = () => {
-    setOrderSuccess(false);
-  };
+  }, [cart, isAuthenticated, user, saveToCart, navigate]);
 
   // Close error snackbar
   const handleCloseErrorSnackbar = () => {
-    setOrderError(null);
+    setCartSaveError(null);
   };
 
-  // Apply local filtering for immediate feedback (remove if API handles all filtering)
+  // Close success snackbar
+  const handleCloseSuccessSnackbar = () => {
+    setCartSaveSuccess(false);
+  };
+
   const filteredProducts = products;
 
   if (loading && products.length === 0) {
@@ -318,151 +318,151 @@ const ProductList = () => {
       />
 
       <Grid container spacing={2}>
-      <Grid item size={{ xs: 12, md: 8 }}>
-        <Box p={2} border={1} borderRadius={2} borderColor="grey.300" sx={{ backgroundColor: '#fff' }}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-              <Button
-                onClick={() => fetchProducts(currentPage, search, filters)}
-                sx={{ ml: 2 }}
-                size="small"
-              >
-                Retry
-              </Button>
-            </Alert>
-          )}
-
-          <TextField
-            variant="outlined"
-            size="small"
-            fullWidth
-            value={search}
-            placeholder="Search by product name"
-            onChange={(e) => setSearch(e.target.value)}
-            sx={{
-              display: {
-                xs: 'none',   // show on extra-small
-                sm: 'none',   // show on small
-                md: 'flex',   // hide on medium and up
-              },
-              mb: 2
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              )
-            }}
-          />
-
-          <TextField
-            variant="outlined"
-            size="small"
-            fullWidth
-            value={search}
-            placeholder="Search by product name"
-            onChange={(e) => setSearch(e.target.value)}
-            sx={{
-              display: {
-                xs: 'flex',   // hidden on xs
-                sm: 'flex',   // hidden on sm
-                md: 'none',   // visible on md and up
-              },
-              mb: 2
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <Button variant="contained" size="small">
-                    <TuneIcon />
-                  </Button>
-                </InputAdornment>
-              )
-            }}
-          />
-
-          <Typography variant="h5" mb={1}>Casual</Typography>
-          <Typography variant="subtitle2" mb={3}>
-            Showing {filteredProducts.length} of {products.length} Products
-            {loading && <CircularProgress size={16} sx={{ ml: 1 }} />}
-            {(filters.categories.length > 0 || filters.minPrice > 0 || filters.maxPrice < 300) && (
-              <Typography variant="caption" color="primary.main" display="block">
-                Filters applied
-              </Typography>
+        <Grid item size={{ xs: 12, md: 8 }}>
+          <Box p={2} border={1} borderRadius={2} borderColor="grey.300" sx={{ backgroundColor: '#fff' }}>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+                <Button
+                  onClick={() => fetchProducts(currentPage, search, filters)}
+                  sx={{ ml: 2 }}
+                  size="small"
+                >
+                  Retry
+                </Button>
+              </Alert>
             )}
-          </Typography>
 
-          <Grid container spacing={2} mb={4}>
-            {filteredProducts.map(product => (
-              <Grid item size={{ xs: 12, md: 4 }} key={product.id}>
-                <ProductCard
-                  product={product}
-                  onQuantityChange={(newQuantity) => updateProductQuantity(product.id, newQuantity)}
-                />
-              </Grid>
-            ))}
-          </Grid>
-
-          {filteredProducts.length === 0 && !loading && (
-            <Box textAlign="center" py={4}>
-              <Typography variant="body1" color="text.secondary">
-                No products found matching your search.
-              </Typography>
-            </Box>
-          )}
-
-          <Box display="flex" justifyContent="center" mt="auto">
-            <Pagination
-              count={totalPages}
-              page={currentPage}
-              onChange={handlePageChange}
-              disabled={loading}
+            <TextField
+              variant="outlined"
+              size="small"
+              fullWidth
+              value={search}
+              placeholder="Search by product name"
+              onChange={(e) => setSearch(e.target.value)}
+              sx={{
+                display: {
+                  xs: 'none',
+                  sm: 'none',
+                  md: 'flex',
+                },
+                mb: 2
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                )
+              }}
             />
+
+            <TextField
+              variant="outlined"
+              size="small"
+              fullWidth
+              value={search}
+              placeholder="Search by product name"
+              onChange={(e) => setSearch(e.target.value)}
+              sx={{
+                display: {
+                  xs: 'flex',
+                  sm: 'flex',
+                  md: 'none',
+                },
+                mb: 2
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Button variant="contained" size="small">
+                      <TuneIcon />
+                    </Button>
+                  </InputAdornment>
+                )
+              }}
+            />
+
+            <Typography variant="h5" mb={1}>Casual</Typography>
+            <Typography variant="subtitle2" mb={3}>
+              Showing {filteredProducts.length} of {products.length} Products
+              {loading && <CircularProgress size={16} sx={{ ml: 1 }} />}
+              {(filters.categories.length > 0 || filters.minPrice > 0 || filters.maxPrice < 300) && (
+                <Typography variant="caption" color="primary.main" display="block">
+                  Filters applied
+                </Typography>
+              )}
+            </Typography>
+
+            <Grid container spacing={2} mb={4}>
+              {filteredProducts.map(product => (
+                <Grid item size={{ xs: 12, md: 4 }} key={product.id}>
+                  <ProductCard
+                    product={product}
+                    onQuantityChange={(newQuantity) => updateProductQuantity(product.id, newQuantity)}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+
+            {filteredProducts.length === 0 && !loading && (
+              <Box textAlign="center" py={4}>
+                <Typography variant="body1" color="text.secondary">
+                  No products found matching your search.
+                </Typography>
+              </Box>
+            )}
+
+            <Box display="flex" justifyContent="center" mt="auto">
+              <Pagination
+                count={totalPages}
+                page={currentPage}
+                onChange={handlePageChange}
+                disabled={loading}
+              />
+            </Box>
           </Box>
-        </Box>
+        </Grid>
+        <Grid item size={{ xs: 12, md: 4 }}>
+          <OrderSummary
+            cart={cart}
+            onProceedToCheckout={handleSaveToCart} // Changed from handleProceedToCheckout
+            onRemoveFromCart={handleRemoveFromCart}
+            isSubmittingOrder={isSavingToCart} // Changed from isSubmittingOrder
+            isAuthenticated={isAuthenticated}
+            user={user}
+          />
+        </Grid>
       </Grid>
-      <Grid item size={{ xs: 12, md: 4 }}>
-        <OrderSummary
-          cart={cart}
-          onProceedToCheckout={handleProceedToCheckout}
-          onRemoveFromCart={handleRemoveFromCart}
-          isSubmittingOrder={isSubmittingOrder}
-          isAuthenticated={isAuthenticated}
-          user={user}
-        />
-      </Grid>
-    </Grid>
 
-    {/* Success Snackbar */}
-    <Snackbar
-      open={orderSuccess}
-      autoHideDuration={6000}
-      onClose={handleCloseSuccessSnackbar}
-      anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-    >
-      <Alert onClose={handleCloseSuccessSnackbar} severity="success" sx={{ width: '100%' }}>
-        Order submitted successfully! Thank you for your purchase.
-      </Alert>
-    </Snackbar>
+      {/* Error Snackbar */}
+      <Snackbar
+        open={!!cartSaveError}
+        autoHideDuration={6000}
+        onClose={handleCloseErrorSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseErrorSnackbar} severity="error" sx={{ width: '100%' }}>
+          {cartSaveError}
+        </Alert>
+      </Snackbar>
 
-    {/* Error Snackbar */}
-    <Snackbar
-      open={!!orderError}
-      autoHideDuration={6000}
-      onClose={handleCloseErrorSnackbar}
-      anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-    >
-      <Alert onClose={handleCloseErrorSnackbar} severity="error" sx={{ width: '100%' }}>
-        {orderError}
-      </Alert>
-    </Snackbar>
+      {/* Success Snackbar */}
+      <Snackbar
+        open={cartSaveSuccess}
+        autoHideDuration={4000}
+        onClose={handleCloseSuccessSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSuccessSnackbar} severity="success" sx={{ width: '100%' }}>
+          Items saved to cart successfully!
+        </Alert>
+      </Snackbar>
     </>
   );
 };
