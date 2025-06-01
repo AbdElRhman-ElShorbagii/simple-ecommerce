@@ -12,7 +12,6 @@ const Home = () => {
                 </Typography>
                 <Typography sx={{ color: 'text.primary' }}>Casual</Typography>
             </Breadcrumbs>
-            <FilterFloatingButton />
             <ProductList />
         </div>
     );

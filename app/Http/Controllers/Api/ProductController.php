@@ -28,7 +28,22 @@ class ProductController extends Controller
                 $query->byPriceRange($request->min_price, $request->max_price);
             }
 
-            if ($request->filled('category')) {
+            // Updated to handle multiple categories
+            if ($request->filled('categories')) {
+                $categories = is_array($request->categories)
+                    ? $request->categories
+                    : explode(',', $request->categories);
+
+                // Remove empty values and trim whitespace
+                $categories = array_filter(array_map('trim', $categories));
+
+                if (!empty($categories)) {
+                    $query->whereIn('category', $categories);
+                }
+            }
+
+            // Keep backwards compatibility with single category filter
+            if ($request->filled('category') && !$request->filled('categories')) {
                 $query->byCategory($request->category);
             }
 

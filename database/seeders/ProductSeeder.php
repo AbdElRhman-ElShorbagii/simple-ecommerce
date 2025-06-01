@@ -22,35 +22,35 @@ class ProductSeeder extends Seeder
                 'img_url' => 'products/polo_with_tipping_details.jpg',
                 'price' => 25.99,
                 'stock_quantity' => 100,
-                'category' => 'Electronics'
+                'category' => 'Polo'
             ],
             [
                 'name' => 'Black Striped T-shirt',
                 'img_url' => 'products/black_striped_tshirt.jpg',
                 'price' => 39.99,
                 'stock_quantity' => 30,
-                'category' => 'Books'
+                'category' => 'T-shirts'
             ],
             [
                 'name' => 'Skinny Fit Jeans',
                 'img_url' => 'products/skinny_fit_jeans.jpg',
                 'price' => 39.99,
                 'stock_quantity' => 30,
-                'category' => 'Books'
+                'category' => 'Jeans'
             ],
             [
                 'name' => 'Checkered Shirt',
                 'img_url' => 'products/checkered_shirt.jpg',
                 'price' => 39.99,
                 'stock_quantity' => 30,
-                'category' => 'Books'
+                'category' => 'Shirts'
             ],
             [
                 'name' => 'Sleeve Striped T-shirt',
                 'img_url' => 'products/sleeve_striped_tshirt.jpg',
                 'price' => 39.99,
                 'stock_quantity' => 30,
-                'category' => 'Books'
+                'category' => 'T-shirts'
             ],
         ];
 

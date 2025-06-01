@@ -12,7 +12,7 @@ class ProductResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'image_url' => url($this->image_url),
+            'image_url' => url($this->img_url),
             'price' => number_format($this->price, 2),
             'price_raw' => $this->price,
             'stock_quantity' => $this->stock_quantity,
