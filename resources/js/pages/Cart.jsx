@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import CartProductCard from '../components/CartProductCard';
 import CartOrderSummary from '../components/CartOrderSummary';
+import { getOrder, updateOrderItem, removeOrderItem } from '../api'; // Import specific functions
 
 const Cart = () => {
     const [searchParams] = useSearchParams();
@@ -66,31 +67,13 @@ const Cart = () => {
       setLoading(true);
       setError(null);
 
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:8000/api/orders/${orderId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await getOrder(orderId);
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('Order not found');
-        } else if (response.status === 403) {
-          throw new Error('You are not authorized to view this order');
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        setOrderDetails(result.data);
+      if (response.data.success) {
+        setOrderDetails(response.data.data);
 
         // Transform order items to cart format
-        const transformedItems = result.data.products.map(item => ({
+        const transformedItems = response.data.data.products.map(item => ({
           id: item.product_id,
           name: item.name || item.product_name,
           price: parseFloat(item.unit_price),
@@ -103,14 +86,31 @@ const Cart = () => {
 
         setCartItems(transformedItems);
       } else {
-        throw new Error(result.message || 'Failed to fetch order details');
+        throw new Error(response.data.message || 'Failed to fetch order details');
       }
     } catch (err) {
-      setError(err.message);
+      let errorMessage = 'An error occurred while fetching order details';
+
+      if (err.response) {
+        // Handle HTTP error responses
+        if (err.response.status === 404) {
+          errorMessage = 'Order not found';
+        } else if (err.response.status === 403) {
+          errorMessage = 'You are not authorized to view this order';
+        } else if (err.response.data?.message) {
+          errorMessage = err.response.data.message;
+        } else {
+          errorMessage = `HTTP error! status: ${err.response.status}`;
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
       console.error('Error fetching order details:', err);
 
-      // Redirect to products page if order not found
-      if (err.message.includes('not found') || err.message.includes('not authorized')) {
+      // Redirect to products page if order not found or unauthorized
+      if (errorMessage.includes('not found') || errorMessage.includes('not authorized')) {
         setTimeout(() => {
           navigate('/products');
         }, 3000);
@@ -130,49 +130,36 @@ const Cart = () => {
   // Update product quantity in order
   const updateCartItemQuantity = useCallback(async (productId, newQuantity) => {
     try {
-      const token = localStorage.getItem('auth_token');
-
       if (newQuantity <= 0) {
         // Remove item from order
-        const response = await fetch(`http://localhost:8000/api/orders/${orderId}/items/${productId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
+        await removeOrderItem(orderId, productId);
 
-        if (response.ok) {
-          setCartItems(prevItems => prevItems.filter(item => item.id !== productId));
-          // Refetch order details to get updated totals
-          fetchOrderDetails();
-        }
+        setCartItems(prevItems => prevItems.filter(item => item.id !== productId));
+        // Refetch order details to get updated totals
+        fetchOrderDetails();
       } else {
         // Update item quantity
-        const response = await fetch(`http://localhost:8000/api/orders/${orderId}/items/${productId}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ quantity: newQuantity })
-        });
+        await updateOrderItem(orderId, productId, { quantity: newQuantity });
 
-        if (response.ok) {
-          setCartItems(prevItems =>
-            prevItems.map(item =>
-              item.id === productId
-                ? { ...item, quantity: newQuantity, subtotal: item.price * newQuantity }
-                : item
-            )
-          );
-          // Refetch order details to get updated totals
-          fetchOrderDetails();
-        }
+        setCartItems(prevItems =>
+          prevItems.map(item =>
+            item.id === productId
+              ? { ...item, quantity: newQuantity, subtotal: item.price * newQuantity }
+              : item
+          )
+        );
+        // Refetch order details to get updated totals
+        fetchOrderDetails();
       }
     } catch (err) {
       console.error('Error updating cart item:', err);
-      setOrderError('Failed to update item quantity');
+      let errorMessage = 'Failed to update item quantity';
+
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+
+      setOrderError(errorMessage);
     }
   }, [orderId, fetchOrderDetails]);
 
@@ -205,7 +192,7 @@ const Cart = () => {
           <Button
             variant="contained"
             size="large"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/products')}
             sx={{ px: 4 }}
           >
             Start Shopping
